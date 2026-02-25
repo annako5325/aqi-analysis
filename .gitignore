@@ -140,7 +140,5 @@ dmypy.json
 Thumbs.db
 
 # Project specific
-data/
-outputs/
 *.log
 *.tmp
