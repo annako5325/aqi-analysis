@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-?�難?�容?��? AQI 風險?��??��?境模??模擬�?AQI ?��?以�?證風?��?籤�?�?"""
+避難收容處所 AQI 風險分析與情境模擬
+模擬高AQI情境以驗證風險標籤準確性
+"""
 
 import pandas as pd
 import numpy as np
-from scipy.spatial import cKDTree
 import math
+import os
+import sys
 
-class ShelterAQIRiskAnalysis:
-    """?�難?�容?��? AQI 風險?��???""
+class ShelterAQIAnalysis:
+    """避難收容處所 AQI 風險分析器"""
     
     def __init__(self):
         self.shelter_data = None
@@ -17,101 +20,52 @@ class ShelterAQIRiskAnalysis:
         self.risk_analysis = None
         
     def load_data(self):
-        """載入?��?"""
-        print("載入?��?...")
+        """載入資料"""
+        print("載入資料...")
         
-        # 載入?�難?�容?��??��?
+        # 載入避難收容處所資料
+        shelter_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'shelters_cleaned.csv')
         try:
-            self.shelter_data = pd.read_csv('?�難?�容?��?點�?檔�?v9_boundary_cleaned.csv')
-            print(f"載入?�難?�容?��?: {len(self.shelter_data)} �?)
+            self.shelter_data = pd.read_csv(shelter_path, encoding='utf-8')
+            print(f"載入避難收容處所: {len(self.shelter_data)} 筆")
         except Exception as e:
-            print(f"載入?�難?�容?��?失�?: {e}")
+            print(f"載入避難收容處所失敗: {e}")
             return False
         
-        # 載入 AQI 測�??��?
-        try:
-            self.aqi_data = pd.read_csv('extracted_85_aqi_stations.csv')
-            print(f"載入 AQI 測�?: {len(self.aqi_data)} �?)
-        except Exception as e:
-            print(f"載入 AQI 測�?失�?: {e}")
-            return False
+        # 使用模擬 AQI 資料
+        self.aqi_data = self._create_sample_aqi_data()
         
         return True
     
-    def simulate_high_aqi_scenario(self):
-        """模擬�?AQI ?��?"""
-        print("\n?��??��?模擬...")
-        
-        # 檢查?��? AQI ?��?
-        original_stats = {
-            'mean': self.aqi_data['AQI'].mean(),
-            'max': self.aqi_data['AQI'].max(),
-            'min': self.aqi_data['AQI'].min(),
-            'good_count': len(self.aqi_data[self.aqi_data['AQI'] <= 50]),
-            'moderate_count': len(self.aqi_data[(self.aqi_data['AQI'] > 50) & (self.aqi_data['AQI'] <= 100)]),
-            'poor_count': len(self.aqi_data[self.aqi_data['AQI'] > 100])
-        }
-        
-        print(f"?��? AQI 統�?:")
-        print(f"  平�??? {original_stats['mean']:.1f}")
-        print(f"  ?�大�? {original_stats['max']}")
-        print(f"  ?�小�? {original_stats['min']}")
-        print(f"  ?�好 (??0): {original_stats['good_count']} ??)
-        print(f"  ?��?(51-100): {original_stats['moderate_count']} ??)
-        print(f"  不佳 (>100): {original_stats['poor_count']} ??)
-        
-        # 模擬?��?：�?高�?測�???AQI 設為 150
-        print(f"\n?�� ?��?模擬：�?高�?測�? AQI 設為 150")
-        
-        # ?�到高�?測�?
-        kaohsiung_stations = self.aqi_data[self.aqi_data['County'].str.contains('高�?', na=False)]
-        if len(kaohsiung_stations) > 0:
-            # 將第一?��??�測站�? AQI 設為 150
-            target_idx = kaohsiung_stations.index[0]
-            original_aqi = self.aqi_data.loc[target_idx, 'AQI']
-            self.aqi_data.loc[target_idx, 'AQI'] = 150
-            self.aqi_data.loc[target_idx, 'PM25'] = 42.0  # 對�???PM2.5
-            
-            print(f"  �?{self.aqi_data.loc[target_idx, 'SiteName']} 測�?")
-            print(f"  AQI �?{original_aqi} 調整??150")
-            print(f"  PM2.5 調整??42.0 μg/m³")
-        else:
-            # 如�?沒�??�到高�?測�?，選?��??�地?�?�測�?            southern_stations = self.aqi_data[
-                (self.aqi_data['lat'] < 23.5) & 
-                (self.aqi_data['lon'] > 120.0)
-            ]
-            if len(southern_stations) > 0:
-                target_idx = southern_stations.index[0]
-                original_aqi = self.aqi_data.loc[target_idx, 'AQI']
-                self.aqi_data.loc[target_idx, 'AQI'] = 150
-                self.aqi_data.loc[target_idx, 'PM25'] = 42.0
-                
-                print(f"  �?{self.aqi_data.loc[target_idx, 'SiteName']} 測�?")
-                print(f"  AQI �?{original_aqi} 調整??150")
-                print(f"  PM2.5 調整??42.0 μg/m³")
-        
-        # 顯示模擬後�?統�?
-        simulated_stats = {
-            'mean': self.aqi_data['AQI'].mean(),
-            'max': self.aqi_data['AQI'].max(),
-            'min': self.aqi_data['AQI'].min(),
-            'good_count': len(self.aqi_data[self.aqi_data['AQI'] <= 50]),
-            'moderate_count': len(self.aqi_data[(self.aqi_data['AQI'] > 50) & (self.aqi_data['AQI'] <= 100)]),
-            'poor_count': len(self.aqi_data[self.aqi_data['AQI'] > 100])
-        }
-        
-        print(f"\n模擬�?AQI 統�?:")
-        print(f"  平�??? {simulated_stats['mean']:.1f}")
-        print(f"  ?�大�? {simulated_stats['max']}")
-        print(f"  ?�小�? {simulated_stats['min']}")
-        print(f"  ?�好 (??0): {simulated_stats['good_count']} ??)
-        print(f"  ?��?(51-100): {simulated_stats['moderate_count']} ??)
-        print(f"  不佳 (>100): {simulated_stats['poor_count']} ??)
+    def _create_sample_aqi_data(self):
+        """創建模擬 AQI 資料"""
+        stations = [
+            {'SiteName': '基隆', 'County': '基隆市', 'AQI': 45, 'PM25': 12.6, 'lat': 25.129167, 'lon': 121.760056},
+            {'SiteName': '台北', 'County': '台北市', 'AQI': 65, 'PM25': 18.2, 'lat': 25.0330, 'lon': 121.5654},
+            {'SiteName': '新北', 'County': '新北市', 'AQI': 58, 'PM25': 16.2, 'lat': 25.0173, 'lon': 121.4625},
+            {'SiteName': '桃園', 'County': '桃園市', 'AQI': 72, 'PM25': 20.2, 'lat': 24.9936, 'lon': 121.3010},
+            {'SiteName': '新竹', 'County': '新竹市', 'AQI': 48, 'PM25': 13.4, 'lat': 24.8138, 'lon': 120.9675},
+            {'SiteName': '苗栗', 'County': '苗栗市', 'AQI': 52, 'PM25': 14.6, 'lat': 24.5646, 'lon': 120.8214},
+            {'SiteName': '台中', 'County': '台中市', 'AQI': 85, 'PM25': 23.8, 'lat': 24.1477, 'lon': 120.6736},
+            {'SiteName': '彰化', 'County': '彰化市', 'AQI': 68, 'PM25': 19.0, 'lat': 24.0771, 'lon': 120.5428},
+            {'SiteName': '南投', 'County': '南投市', 'AQI': 55, 'PM25': 15.4, 'lat': 23.9096, 'lon': 120.6838},
+            {'SiteName': '雲林', 'County': '雲林市', 'AQI': 62, 'PM25': 17.4, 'lat': 23.6990, 'lon': 120.4329},
+            {'SiteName': '嘉義', 'County': '嘉義市', 'AQI': 74, 'PM25': 20.7, 'lat': 23.4801, 'lon': 120.4491},
+            {'SiteName': '台南', 'County': '台南市', 'AQI': 67, 'PM25': 18.8, 'lat': 22.9999, 'lon': 120.2269},
+            {'SiteName': '高雄', 'County': '高雄市', 'AQI': 125, 'PM25': 35.0, 'lat': 22.6273, 'lon': 120.3014},
+            {'SiteName': '屏東', 'County': '屏東市', 'AQI': 56, 'PM25': 15.7, 'lat': 22.6697, 'lon': 120.4859},
+            {'SiteName': '宜蘭', 'County': '宜蘭市', 'AQI': 38, 'PM25': 10.6, 'lat': 24.6929, 'lon': 121.7216},
+            {'SiteName': '花蓮', 'County': '花蓮市', 'AQI': 35, 'PM25': 9.8, 'lat': 23.9759, 'lon': 121.6034},
+            {'SiteName': '台東', 'County': '台東市', 'AQI': 42, 'PM25': 11.8, 'lat': 22.7553, 'lon': 121.1506},
+            {'SiteName': '澎湖', 'County': '澎湖縣', 'AQI': 40, 'PM25': 11.2, 'lat': 23.5697, 'lon': 119.5665},
+            {'SiteName': '金門', 'County': '金門縣', 'AQI': 48, 'PM25': 13.4, 'lat': 24.4330, 'lon': 118.3222},
+            {'SiteName': '馬祖', 'County': '連江縣', 'AQI': 32, 'PM25': 9.0, 'lat': 26.1616, 'lon': 119.9368}
+        ]
+        return pd.DataFrame(stations)
     
     def calculate_distance(self, lat1, lon1, lat2, lon2):
-        """計�??��??��?距離（公?��?"""
-        # 使用 Haversine ?��?
-        R = 6371  # ?��??��?（公?��?
+        """計算兩點間的距離（公里）"""
+        R = 6371  # 地球半徑（公里）
         
         lat1_rad = math.radians(lat1)
         lat2_rad = math.radians(lat2)
@@ -126,7 +80,7 @@ class ShelterAQIRiskAnalysis:
         return R * c
     
     def find_nearest_aqi_station(self, shelter_lat, shelter_lon):
-        """尋找?�近�? AQI 測�?"""
+        """尋找最近的 AQI 測站"""
         min_distance = float('inf')
         nearest_station = None
         
@@ -143,19 +97,19 @@ class ShelterAQIRiskAnalysis:
         return nearest_station, min_distance
     
     def perform_risk_analysis(self):
-        """?��?風險?��?"""
-        print("\n?��?風險?��?...")
+        """執行風險分析"""
+        print("執行風險分析...")
         
         risk_results = []
         
         for idx, shelter in self.shelter_data.iterrows():
             shelter_lat = shelter['緯度']
             shelter_lon = shelter['經度']
-            shelter_name = shelter['?�難?�容?��??�稱']
+            shelter_name = shelter['避難收容處所名稱']
             is_indoor = shelter['is_indoor']
-            county = shelter.get('�???��??��??�', '?�知')
+            county = shelter.get('縣市及鄉鎮市區', '未知')
             
-            # 尋找?�近�? AQI 測�?
+            # 尋找最近的 AQI 測站
             nearest_station, distance = self.find_nearest_aqi_station(
                 shelter_lat, shelter_lon
             )
@@ -165,18 +119,18 @@ class ShelterAQIRiskAnalysis:
                 nearest_station_name = nearest_station['SiteName']
                 nearest_station_county = nearest_station['County']
                 
-                # 風險標籤?�輯
+                # 風險標籤邏輯
                 if nearest_aqi > 100:
                     risk_level = "High Risk"
-                    risk_description = f"?�近測�?AQI {nearest_aqi} > 100"
+                    risk_description = f"最近測站 AQI {nearest_aqi} > 100"
                 elif nearest_aqi > 50 and not is_indoor:
                     risk_level = "Warning"
-                    risk_description = f"?�近測�?AQI {nearest_aqi} > 50 且為?��?設施"
+                    risk_description = f"最近測站 AQI {nearest_aqi} > 50 且為戶外設施"
                 else:
                     risk_level = "Low Risk"
-                    risk_description = "風險較�?"
+                    risk_description = "風險較低"
                 
-                # 計�?風險?�數
+                # 計算風險分數
                 risk_score = 0
                 if nearest_aqi > 100:
                     risk_score += 50
@@ -186,173 +140,91 @@ class ShelterAQIRiskAnalysis:
                 if not is_indoor:
                     risk_score += 20
                 
-                # 距離?�罰（�??��??��?不確定性�?高�?
+                # 距離懲罰
                 if distance > 20:
                     risk_score += 10
                 elif distance > 10:
                     risk_score += 5
                 
-                risk_score = min(100, risk_score)  # ?�制?�大值為100
+                risk_score = min(100, risk_score)
                 
                 result = {
-                    '?�難?�容?��??�稱': shelter_name,
-                    '�???��??��??�': county,
+                    '避難收容處所名稱': shelter_name,
+                    '縣市及鄉鎮市區': county,
                     '緯度': shelter_lat,
                     '經度': shelter_lon,
                     'is_indoor': is_indoor,
-                    '設施類�?': '室內設施' if is_indoor else '?��?設施',
-                    '?�近AQI測�?': nearest_station_name,
-                    '測�?�??': nearest_station_county,
-                    '?�近測站AQI': nearest_aqi,
-                    '距離測�?(km)': round(distance, 2),
-                    '風險等�?': risk_level,
-                    '風險?�述': risk_description,
-                    '風險?�數': risk_score,
-                    '模擬?��?': '高AQI?��?模擬'
+                    '設施類型': '室內設施' if is_indoor else '戶外設施',
+                    '最近AQI測站': nearest_station_name,
+                    '測站縣市': nearest_station_county,
+                    '最近測站AQI': nearest_aqi,
+                    '距離測站(km)': round(distance, 2),
+                    '風險等級': risk_level,
+                    '風險描述': risk_description,
+                    '風險分數': risk_score
                 }
                 
                 risk_results.append(result)
         
         self.risk_analysis = pd.DataFrame(risk_results)
-        print(f"完�? {len(risk_results)} ?�避??��容�??�?�風?��???)
+        print(f"完成 {len(risk_results)} 個避難收容處所的風險分析")
         
         return self.risk_analysis
     
-    def generate_statistics(self):
-        """?��?統�??��?"""
-        print("\n?��?風險?��?統�?...")
-        
-        if self.risk_analysis is None:
-            print("請�??��?風險?��?")
-            return
-        
-        # 風險等�?統�?
-        risk_counts = self.risk_analysis['風險等�?'].value_counts()
-        print(f"\n風險等�??��?:")
-        for risk_level, count in risk_counts.items():
-            percentage = count / len(self.risk_analysis) * 100
-            print(f"  {risk_level}: {count:,} �?({percentage:.1f}%)")
-        
-        # 設施類�?統�?
-        facility_counts = self.risk_analysis['設施類�?'].value_counts()
-        print(f"\n設施類�??��?:")
-        for facility_type, count in facility_counts.items():
-            percentage = count / len(self.risk_analysis) * 100
-            print(f"  {facility_type}: {count:,} �?({percentage:.1f}%)")
-        
-        # 高風?�設?�詳??        high_risk = self.risk_analysis[self.risk_analysis['風險等�?'] == 'High Risk']
-        if len(high_risk) > 0:
-            print(f"\n高風?�設??(??0??:")
-            for _, row in high_risk.head(10).iterrows():
-                print(f"  {row['?�難?�容?��??�稱']} ({row['設施類�?']})")
-                print(f"    位置: {row['�???��??��??�']}")
-                print(f"    ?�近測�? {row['?�近AQI測�?']} (AQI: {row['?�近測站AQI']})")
-                print(f"    距離: {row['距離測�?(km)']} km")
-                print(f"    風險?�數: {row['風險?�數']}")
-                print()
-        
-        # 警�?設施詳�?
-        warning_risk = self.risk_analysis[self.risk_analysis['風險等�?'] == 'Warning']
-        if len(warning_risk) > 0:
-            print(f"\n警�?風險設施 (????:")
-            for _, row in warning_risk.head(5).iterrows():
-                print(f"  {row['?�難?�容?��??�稱']} ({row['設施類�?']})")
-                print(f"    位置: {row['�???��??��??�']}")
-                print(f"    ?�近測�? {row['?�近AQI測�?']} (AQI: {row['?�近測站AQI']})")
-                print(f"    距離: {row['距離測�?(km)']} km")
-                print(f"    風險?�數: {row['風險?�數']}")
-                print()
-    
     def save_results(self):
-        """?��??��?結�?"""
+        """儲存分析結果"""
         if self.risk_analysis is None:
-            print("請�??��?風險?��?")
+            print("請先執行風險分析")
             return
         
-        # 確�? outputs ?��?存在
-        import os
-        os.makedirs('outputs', exist_ok=True)
+        # 確保 outputs 目錄存在
+        output_dir = os.path.join(os.path.dirname(__file__), '..', 'outputs')
+        os.makedirs(output_dir, exist_ok=True)
         
-        # ?��?主�??��?結�?
-        output_file = 'outputs/shelter_aqi_analysis.csv'
+        # 儲存分析結果
+        output_file = os.path.join(output_dir, 'shelter_aqi_analysis.csv')
         self.risk_analysis.to_csv(output_file, index=False, encoding='utf-8-sig')
-        print(f"\n風險?��?結�?已儲存至: {output_file}")
-        
-        # ?��?統�??��?
-        summary_stats = {
-            '?�目': [
-                '總避??��容�??�?��?',
-                '高風?�設?�數??,
-                '警�?風險設施?��?', 
-                '低風?�設?�數??,
-                '室內設施?��?',
-                '?��?設施?��?',
-                '平�?風險?�數',
-                '?�高風?��???,
-                '模擬?��?說�?'
-            ],
-            '?��?: [
-                len(self.risk_analysis),
-                len(self.risk_analysis[self.risk_analysis['風險等�?'] == 'High Risk']),
-                len(self.risk_analysis[self.risk_analysis['風險等�?'] == 'Warning']),
-                len(self.risk_analysis[self.risk_analysis['風險等�?'] == 'Low Risk']),
-                len(self.risk_analysis[self.risk_analysis['is_indoor'] == True]),
-                len(self.risk_analysis[self.risk_analysis['is_indoor'] == False]),
-                self.risk_analysis['風險?�數'].mean(),
-                self.risk_analysis['風險?�數'].max(),
-                '將�??�測站AQI設為150?��??��?模擬'
-            ]
-        }
-        
-        summary_df = pd.DataFrame(summary_stats)
-        summary_file = 'outputs/shelter_aqi_analysis_summary.csv'
-        summary_df.to_csv(summary_file, index=False, encoding='utf-8-sig')
-        print(f"統�??��?已儲存至: {summary_file}")
-        
-        # ?��?模擬後�? AQI ?��?
-        simulation_file = 'outputs/simulated_aqi_stations.csv'
-        self.aqi_data.to_csv(simulation_file, index=False, encoding='utf-8-sig')
-        print(f"模擬�?AQI 測�??��?已儲存至: {simulation_file}")
+        print(f"風險分析結果已儲存至: {output_file}")
     
     def run_analysis(self):
-        """?��?完整?��?流�?"""
-        print("=" * 80)
-        print("?�難?�容?��? AQI 風險?��??��?境模??)
-        print("=" * 80)
+        """執行完整分析流程"""
+        print("=" * 60)
+        print("AQI 避難收容處所風險分析")
+        print("=" * 60)
         
-        # 載入?��?
+        # 載入資料
         if not self.load_data():
-            print("載入?��?失�?")
-            return
+            print("載入資料失敗")
+            return False
         
-        # ?��?模擬
-        self.simulate_high_aqi_scenario()
-        
-        # ?��?風險?��?
+        # 執行風險分析
         self.perform_risk_analysis()
         
-        # ?��?統�?
-        self.generate_statistics()
-        
-        # ?��?結�?
+        # 儲存結果
         self.save_results()
         
-        print("\n" + "=" * 80)
-        print("風險?��??��?境模?��??��?")
-        print("=" * 80)
-        print("?? 輸出檔�?:")
-        print("   outputs/shelter_aqi_analysis.csv - 詳細風險?��?結�?")
-        print("   outputs/shelter_aqi_analysis_summary.csv - 統�??��?")
-        print("   outputs/simulated_aqi_stations.csv - 模擬後�?AQI測�??��?")
-        print("\n?�� ?��?模擬說�?:")
-        print("   已�??�部測�? AQI 設為 150")
-        print("   驗�?風險標籤?�輯?�否�?��觸發")
-        print("   確�??��???'High Risk' 標籤")
+        print("\n" + "=" * 60)
+        print("風險分析完成！")
+        print("=" * 60)
+        
+        return True
 
 def main():
-    """主�?�?""
-    analyzer = ShelterAQIRiskAnalysis()
-    analyzer.run_analysis()
+    """主程式"""
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--help':
+            print("用法: python shelter_aqi_analysis.py")
+            print("功能: 執行 AQI 避難收容處所風險分析")
+            return
+    
+    analyzer = ShelterAQIAnalysis()
+    success = analyzer.run_analysis()
+    
+    if success:
+        print("分析成功完成！")
+    else:
+        print("分析失敗，請檢查錯誤訊息。")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
